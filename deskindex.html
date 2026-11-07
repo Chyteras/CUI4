@@ -1,0 +1,2575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>CUI4 Desktop</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+/* ============================================================
+ * [CSS-ROOT] 字体 / Reset / 主题变量
+ * 独立于父页面加载，桌面配色保持深色风格
+ * ============================================================ */
+@font-face{
+  font-family:'TFont';
+  src:url('./TFont.ttf') format('truetype');
+  font-weight:normal;font-style:normal;font-display:swap;
+  unicode-range:U+0021-0022,U+0027,U+002A-002D,U+002F-003B,U+003D,
+    U+0041-005A,U+005B,U+005D,U+0061-007A;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+:root{
+  --text-primary:#1e2a3e;
+  --text-secondary:#2c3e50;
+  --accent:#3a5c8c;
+  --accent-grey:#4b5e77;
+  --card-glass:rgba(255,255,255,.55);
+  --glass-border:rgba(255,255,255,.6);
+  --desktop-bg:#0a0e18;
+  --taskbar-bg:rgba(20,26,40,.82);
+  --taskbar-border:rgba(255,255,255,.08);
+  --win-bg:rgba(28,34,50,.92);
+  --win-border:rgba(255,255,255,.1);
+  --win-header:rgba(40,48,68,.95);
+  --tray-text:#e8eefc;
+  --icon-color:#cdddf7;
+}
+body.dark{
+  --text-primary:#edf2fb;
+  --text-secondary:#b9c7d9;
+  --accent:#6e9eff;
+  --accent-grey:#9aaec9;
+  --card-glass:rgba(30,34,46,.6);
+  --glass-border:rgba(74,111,165,.25);
+}
+html,body{
+  width:100%;height:100%;overflow:hidden;
+  background:var(--desktop-bg);color:var(--text-primary);
+  font-family:'TFont','Segoe UI','Inter','Microsoft YaHei',sans-serif;
+  touch-action:pan-x pan-y;
+}
+
+/* ============================================================
+ * [CSS-WALLPAPER] 桌面壁纸层
+ * ============================================================ */
+#desktopRoot{position:fixed;inset:0;overflow:hidden}
+.wallpaper{position:absolute;inset:0;z-index:0;overflow:hidden}
+.wp-default{
+  position:absolute;inset:0;
+  background:linear-gradient(135deg,#0a0e18,#121826);
+}
+.wp-image{
+  position:absolute;inset:0;
+  background-size:cover;background-position:center;background-repeat:no-repeat;
+  display:none;
+}
+.wp-video{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;display:none;
+}
+
+/* ============================================================
+ * [CSS-ICONS] 桌面图标
+ * ============================================================ */
+.desktop-icons{
+  position:absolute;inset:0 0 52px 0;z-index:1;
+  padding:16px;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+  grid-auto-rows:104px;
+  gap:8px;
+  align-content:start;
+  overflow-y:auto;overflow-x:hidden;
+}
+body.taskbar-top .desktop-icons{inset:52px 0 0 0}
+.desktop-icon{
+  display:flex;flex-direction:column;align-items:center;
+  gap:6px;padding:8px;border-radius:10px;cursor:pointer;
+  transition:background .15s;
+  border:2px solid transparent;
+  position:relative;
+}
+.desktop-icon:hover{background:rgba(255,255,255,.08)}
+.desktop-icon.selected{
+  background:rgba(110,158,255,.25);
+  border-color:rgba(110,158,255,.6);
+}
+.desktop-icon .di-thumb{
+  width:56px;height:56px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;background:rgba(255,255,255,.08);
+}
+.desktop-icon .di-thumb img{width:100%;height:100%;object-fit:cover}
+.desktop-icon .di-thumb video{width:100%;height:100%;object-fit:cover}
+.desktop-icon .di-thumb i{font-size:28px;color:#cdddf7}
+.desktop-icon .di-name{
+  font-size:.72rem;color:#e8eefc;text-align:center;
+  max-width:88px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;
+  text-shadow:0 1px 3px rgba(0,0,0,.8);
+}
+
+/* ============================================================
+ * [CSS-TASKBAR] 任务栏
+ * ============================================================ */
+.taskbar{
+  position:absolute;left:0;right:0;bottom:0;height:52px;z-index:100;
+  background:var(--taskbar-bg);
+  backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+  border-top:1px solid var(--taskbar-border);
+  display:flex;align-items:center;
+  padding:0 6px;gap:2px;
+}
+body.taskbar-top .taskbar{
+  top:0;bottom:auto;
+  border-top:none;
+  border-bottom:1px solid var(--taskbar-border);
+}
+.tb-start,.tb-btn{
+  width:44px;height:44px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;border-radius:6px;
+  color:var(--tray-text);font-size:16px;
+  transition:background .15s;flex-shrink:0;
+}
+.tb-start:hover,.tb-btn:hover{background:rgba(255,255,255,.08)}
+.tb-start-circle{
+  width:18px;height:18px;
+  border:2px solid #fff;border-radius:50%;
+}
+.tb-apps{
+  flex:1;display:flex;align-items:center;gap:2px;
+  overflow-x:auto;padding:0 4px;
+}
+.tb-apps::-webkit-scrollbar{height:0}
+.tb-app{
+  width:40px;height:40px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;position:relative;
+  transition:background .15s;overflow:hidden;
+  flex-shrink:0;color:var(--tray-text);font-size:18px;
+}
+.tb-app:hover{background:rgba(255,255,255,.1)}
+.tb-app.active{background:rgba(110,158,255,.2)}
+.tb-app.active::after{
+  content:'';position:absolute;bottom:2px;left:50%;
+  transform:translateX(-50%);
+  width:16px;height:2px;
+  background:var(--accent);border-radius:2px;
+}
+.tb-app img{width:100%;height:100%;object-fit:cover;border-radius:6px}
+.tb-tray{
+  display:flex;align-items:center;gap:4px;
+  padding:0 6px;flex-shrink:0;
+}
+.tb-tray-item{
+  height:40px;display:flex;align-items:center;justify-content:center;
+  padding:0 8px;border-radius:6px;cursor:pointer;
+  color:var(--tray-text);font-size:13px;
+  transition:background .15s;gap:6px;flex-shrink:0;
+}
+.tb-tray-item:hover{background:rgba(255,255,255,.1)}
+.tb-tray-time{
+  flex-direction:column;line-height:1.2;
+  font-family:'TFont','JetBrains Mono',monospace;
+  text-align:right;font-size:11px;
+}
+.tb-tray-time .t-time{font-size:13px;font-weight:500}
+.tb-tray-time .t-date{font-size:10px;opacity:.7}
+
+/* ============================================================
+ * [CSS-STARTMENU] 开始菜单
+ * ============================================================ */
+.start-menu{
+  position:absolute;left:6px;bottom:58px;
+  width:340px;max-height:520px;
+  background:var(--win-bg);
+  backdrop-filter:blur(28px);
+  -webkit-backdrop-filter:blur(28px);
+  border:1px solid var(--win-border);
+  border-radius:12px;z-index:200;
+  display:none;flex-direction:column;overflow:hidden;
+  box-shadow:0 12px 40px rgba(0,0,0,.4);
+  animation:menuIn .2s cubic-bezier(.23,1,.32,1);
+}
+body.taskbar-top .start-menu{bottom:auto;top:58px}
+.start-menu.show{display:flex}
+@keyframes menuIn{
+  from{opacity:0;transform:scale(.95) translateY(10px)}
+  to{opacity:1;transform:scale(1) translateY(0)}
+}
+.start-search{
+  margin:12px;padding:8px 12px;
+  background:rgba(255,255,255,.08);border-radius:8px;
+  display:flex;align-items:center;gap:8px;
+  color:#cdddf7;font-size:13px;cursor:pointer;
+  transition:background .15s;
+}
+.start-search:hover{background:rgba(255,255,255,.12)}
+.start-recent{flex:1;overflow-y:auto;padding:8px 12px}
+.start-recent-title{
+  font-size:11px;color:#9aaec9;
+  padding:4px 8px;text-transform:uppercase;
+  letter-spacing:1px;
+}
+.start-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px;border-radius:6px;cursor:pointer;
+  color:var(--tray-text);font-size:13px;
+  transition:background .15s;
+}
+.start-item:hover{background:rgba(255,255,255,.08)}
+.start-item i{width:24px;text-align:center;font-size:16px;color:var(--accent)}
+.start-footer{
+  border-top:1px solid var(--win-border);
+  padding:8px 12px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.start-user{
+  display:flex;align-items:center;gap:8px;
+  color:var(--tray-text);font-size:13px;
+}
+.start-user i{font-size:20px}
+.start-power{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--tray-text);font-size:16px;
+  transition:background .15s;
+}
+.start-power:hover{background:rgba(255,255,255,.1)}
+.power-menu{
+  position:absolute;bottom:56px;left:12px;
+  background:var(--win-bg);
+  border:1px solid var(--win-border);
+  border-radius:8px;padding:6px;
+  display:none;box-shadow:0 8px 24px rgba(0,0,0,.4);
+  z-index:210;min-width:160px;
+}
+body.taskbar-top .power-menu{bottom:auto;top:56px}
+.power-menu.show{display:block}
+.power-item{
+  padding:8px 12px;border-radius:6px;cursor:pointer;
+  color:var(--tray-text);font-size:13px;
+  display:flex;align-items:center;gap:10px;
+  transition:background .15s;
+}
+.power-item:hover{background:rgba(255,255,255,.1)}
+
+/* ============================================================
+ * [CSS-WINDOWS] 窗口
+ * ============================================================ */
+.windows-container{
+  position:absolute;inset:0 0 52px 0;z-index:50;
+  pointer-events:none;
+}
+body.taskbar-top .windows-container{inset:52px 0 0 0}
+.window{
+  position:absolute;
+  background:var(--win-bg);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--win-border);
+  border-radius:10px;
+  display:flex;flex-direction:column;
+  pointer-events:auto;
+  box-shadow:0 12px 40px rgba(0,0,0,.45);
+  overflow:hidden;min-width:280px;min-height:180px;
+}
+.window.active{box-shadow:0 16px 50px rgba(0,0,0,.6)}
+.win-header{
+  height:38px;background:var(--win-header);
+  display:flex;align-items:center;
+  padding:0 8px;cursor:move;flex-shrink:0;
+  gap:8px;user-select:none;
+}
+.win-title{
+  flex:1;font-size:12px;color:var(--tray-text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.win-ctrls{display:flex;gap:2px}
+.win-ctrl{
+  width:32px;height:28px;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--tray-text);font-size:11px;
+  transition:background .15s;
+}
+.win-ctrl:hover{background:rgba(255,255,255,.1)}
+.win-ctrl.win-close:hover{background:#e81123}
+.win-body{
+  flex:1;overflow:auto;padding:12px;
+  color:var(--tray-text);font-size:13px;
+}
+body.win-dragging iframe,
+body.win-dragging video{pointer-events:none}
+
+/* ============================================================
+ * [CSS-DESKTOPSEARCH] 桌面搜索
+ * ============================================================ */
+.desktop-search{
+  position:absolute;left:50%;top:15%;
+  transform:translateX(-50%);
+  width:min(600px,90vw);
+  background:var(--win-bg);
+  backdrop-filter:blur(28px);
+  -webkit-backdrop-filter:blur(28px);
+  border:1px solid var(--win-border);
+  border-radius:12px;z-index:250;
+  display:none;flex-direction:column;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+  overflow:hidden;
+}
+.desktop-search.show{display:flex}
+.ds-input-row{
+  display:flex;align-items:center;
+  padding:12px 16px;gap:10px;
+  border-bottom:1px solid var(--win-border);
+}
+.ds-input-row i{color:var(--accent);font-size:16px}
+.ds-input-row input{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--tray-text);font-size:15px;font-family:inherit;
+}
+.ds-results{max-height:400px;overflow-y:auto;padding:8px}
+.ds-result{
+  padding:10px 12px;border-radius:6px;cursor:pointer;
+  color:var(--tray-text);font-size:13px;
+  display:flex;align-items:center;gap:10px;
+  transition:background .15s;
+}
+.ds-result:hover{background:rgba(255,255,255,.08)}
+.ds-result i{width:20px;text-align:center;color:var(--accent)}
+
+/* ============================================================
+ * [CSS-SETTINGS] 桌面设置弹窗
+ * ============================================================ */
+.desktop-settings{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  width:min(600px,90vw);max-height:80vh;
+  background:var(--win-bg);
+  backdrop-filter:blur(28px);
+  -webkit-backdrop-filter:blur(28px);
+  border:1px solid var(--win-border);
+  border-radius:12px;z-index:260;
+  display:none;flex-direction:column;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+  overflow:hidden;
+}
+.desktop-settings.show{display:flex}
+.ds-header{
+  padding:14px 18px;
+  border-bottom:1px solid var(--win-border);
+  display:flex;align-items:center;justify-content:space-between;
+  color:var(--tray-text);font-size:15px;font-weight:500;
+}
+.ds-body{
+  padding:16px 18px;overflow-y:auto;
+  color:var(--tray-text);font-size:13px;
+}
+.ds-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 0;border-bottom:1px solid var(--win-border);
+  gap:12px;
+}
+.ds-row:last-child{border-bottom:none}
+.ds-row .label{font-size:13px}
+.ds-row .desc{font-size:11px;opacity:.6;margin-top:2px}
+.toggle-switch{
+  width:44px;height:22px;background:#555;border-radius:30px;
+  cursor:pointer;transition:.2s;position:relative;flex-shrink:0;
+}
+.toggle-switch.active{background:var(--accent)}
+.toggle-switch::after{
+  content:'';width:18px;height:18px;background:#fff;
+  border-radius:50%;position:absolute;top:2px;left:2px;
+  transition:.2s;
+}
+.toggle-switch.active::after{left:24px}
+.theme-btns{display:flex;gap:6px}
+.theme-btn{
+  padding:4px 12px;border-radius:30px;cursor:pointer;
+  background:rgba(128,128,128,.2);transition:all .2s;
+  font-size:12px;color:var(--tray-text);
+}
+.theme-btn.active{background:var(--accent);color:#fff}
+.btn{
+  padding:6px 14px;border-radius:6px;
+  background:var(--accent);color:#fff;
+  border:none;cursor:pointer;font-size:12px;
+  font-family:inherit;transition:filter .15s;
+}
+.btn:hover{filter:brightness(1.1)}
+.btn.secondary{background:rgba(128,128,128,.3)}
+.btn.danger{background:#e74c3c}
+.file-label{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:6px 14px;border-radius:6px;
+  background:var(--accent);color:#fff;
+  cursor:pointer;font-size:12px;
+  transition:filter .15s;
+}
+.file-label:hover{filter:brightness(1.1)}
+
+/* ============================================================
+ * [CSS-VOLUME] 音量面板
+ * ============================================================ */
+.volume-panel{
+  position:absolute;right:6px;bottom:58px;
+  width:320px;background:var(--win-bg);
+  backdrop-filter:blur(28px);
+  -webkit-backdrop-filter:blur(28px);
+  border:1px solid var(--win-border);
+  border-radius:12px;z-index:220;
+  display:none;padding:16px;
+  box-shadow:0 12px 40px rgba(0,0,0,.4);
+  color:var(--tray-text);
+}
+body.taskbar-top .volume-panel{bottom:auto;top:58px}
+.volume-panel.show{display:block}
+.vp-header{
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:12px;
+}
+.vp-mute{
+  width:40px;height:40px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:20px;color:var(--tray-text);
+  transition:background .15s;flex-shrink:0;
+}
+.vp-mute:hover{background:rgba(255,255,255,.1)}
+.vp-mute.muted{color:#ff6b6b}
+.vp-slider-row{display:flex;align-items:center;gap:10px;flex:1}
+.vp-slider-row input[type="range"]{flex:1}
+.vp-pct{
+  font-size:13px;min-width:44px;text-align:right;
+  font-family:'TFont',monospace;
+}
+
+/* ============================================================
+ * [CSS-CONTEXTMENU] 右键菜单
+ * ============================================================ */
+.context-menu{
+  position:absolute;background:var(--win-bg);
+  border:1px solid var(--win-border);
+  border-radius:8px;padding:6px;
+  z-index:300;min-width:180px;
+  display:none;box-shadow:0 12px 40px rgba(0,0,0,.5);
+  color:var(--tray-text);
+}
+.context-menu.show{display:block}
+.ctx-item{
+  padding:8px 12px;border-radius:4px;cursor:pointer;
+  font-size:12px;display:flex;align-items:center;gap:8px;
+  transition:background .15s;
+}
+.ctx-item:hover{background:rgba(255,255,255,.1)}
+.ctx-item i{width:16px;text-align:center;font-size:12px}
+
+/* ============================================================
+ * [CSS-MULTITASK] 多任务视图
+ * ============================================================ */
+.multitask-overlay{
+  position:absolute;inset:0;z-index:270;
+  background:rgba(10,14,24,.75);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  display:none;flex-direction:column;padding:40px;
+}
+.multitask-overlay.show{display:flex}
+.mt-title{
+  color:var(--tray-text);font-size:22px;
+  font-weight:500;margin-bottom:24px;text-align:center;
+}
+.mt-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:16px;flex:1;overflow-y:auto;align-content:start;
+}
+.mt-card{
+  background:var(--win-bg);
+  border:1px solid var(--win-border);
+  border-radius:10px;padding:20px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:10px;color:var(--tray-text);
+  transition:transform .15s,background .15s;min-height:160px;
+}
+.mt-card:hover{transform:scale(1.03);background:rgba(110,158,255,.15)}
+.mt-card i{font-size:36px;color:var(--accent)}
+.mt-card span{font-size:13px}
+.mt-empty{
+  grid-column:1/-1;text-align:center;
+  color:#9aaec9;padding:60px 20px;font-size:14px;
+}
+
+/* ============================================================
+ * [CSS-NOTEPAD] 记事本
+ * ============================================================ */
+.np-toolbar{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  flex-shrink:0;background:rgba(255,255,255,.03);
+}
+.np-textarea{
+  flex:1;width:100%;resize:none;border:none;outline:none;
+  background:transparent;color:var(--tray-text);
+  font-family:'TFont','Consolas',monospace;
+  font-size:13px;line-height:1.6;padding:12px 14px;
+}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--accent-grey);border-radius:10px}
+
+@media(max-width:640px){
+  .start-menu{width:calc(100vw - 12px);max-height:60vh}
+  .desktop-icons{grid-template-columns:repeat(auto-fill,minmax(80px,1fr))}
+  .window{min-width:240px;min-height:160px}
+  .volume-panel{width:calc(100vw - 12px);max-width:320px}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     [HTML-ROOT] 桌面根容器
+     ============================================================ -->
+<div id="desktopRoot">
+
+  <!-- 壁纸层 -->
+  <div class="wallpaper">
+    <div class="wp-default" id="wpDefault"></div>
+    <div class="wp-image" id="wpImage"></div>
+    <video class="wp-video" id="wpVideo" muted autoplay loop playsinline></video>
+  </div>
+
+  <!-- 桌面图标 -->
+  <div class="desktop-icons" id="desktopIcons"></div>
+
+  <!-- 窗口容器 -->
+  <div class="windows-container" id="windowsContainer"></div>
+
+  <!-- 任务栏 -->
+  <div class="taskbar" id="taskbar">
+    <div class="tb-start" id="tbStart" title="开始 (↑)">
+      <div class="tb-start-circle"></div>
+    </div>
+    <div class="tb-btn" id="tbSearch" title="搜索 (←)">
+      <i class="fas fa-search"></i>
+    </div>
+    <div class="tb-btn" id="tbMultitask" title="多任务 (CapsLock)">
+      <i class="fas fa-th-large"></i>
+    </div>
+    <div class="tb-apps" id="tbApps"></div>
+    <div class="tb-tray">
+      <div class="tb-tray-item" id="trayBattery" style="display:none">
+        <i class="fas fa-battery-half"></i>
+        <span id="trayBatteryText">--%</span>
+      </div>
+      <div class="tb-tray-item" id="trayVolume" title="音量">
+        <i class="fas fa-volume-up" id="trayVolumeIcon"></i>
+      </div>
+      <div class="tb-tray-item tb-tray-time" id="trayTime">
+        <div class="t-time" id="trayTimeText">--:--:--</div>
+        <div class="t-date" id="trayDateText">----.--.--</div>
+      </div>
+      <div class="tb-tray-item" id="trayExit" title="返回主界面 (→ / Esc)">
+        <i class="fas fa-sign-out-alt"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- 开始菜单 -->
+  <div class="start-menu" id="startMenu">
+    <div class="start-search" id="startSearchBtn">
+      <i class="fas fa-search"></i><span>搜索应用、设置、文件</span>
+    </div>
+    <div class="start-recent">
+      <div class="start-recent-title">最近打开</div>
+      <div id="startRecentList"></div>
+    </div>
+    <div class="start-footer">
+      <div class="start-user">
+        <i class="fas fa-user-circle"></i>
+        <span id="startUserName">CUI4 USER</span>
+      </div>
+      <div class="start-power" id="startPowerBtn" title="电源">
+        <i class="fas fa-power-off"></i>
+      </div>
+    </div>
+    <div class="power-menu" id="startPowerMenu">
+      <div class="power-item" data-act="restart"><i class="fas fa-redo"></i> 重新启动</div>
+      <div class="power-item" data-act="main"><i class="fas fa-home"></i> 返回至主界面</div>
+    </div>
+  </div>
+
+  <!-- 音量面板 -->
+  <div class="volume-panel" id="volumePanel">
+    <div class="vp-header">
+      <div class="vp-mute" id="vpMuteBtn">
+        <i class="fas fa-volume-up" id="vpMuteIcon"></i>
+      </div>
+      <div class="vp-slider-row">
+        <input type="range" id="vpSlider" min="0" max="100" value="33">
+        <span class="vp-pct" id="vpPct">33%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 桌面搜索 -->
+  <div class="desktop-search" id="desktopSearch">
+    <div class="ds-input-row">
+      <i class="fas fa-search"></i>
+      <input type="text" id="dsInput" placeholder="搜索应用、设置、文件...">
+    </div>
+    <div class="ds-results" id="dsResults"></div>
+  </div>
+
+  <!-- 桌面设置弹窗 -->
+  <div class="desktop-settings" id="desktopSettings">
+    <div class="ds-header">
+      <span>桌面设置</span>
+      <button class="close-panel" id="dsCloseBtn" style="color:var(--tray-text);background:none;border:none;font-size:22px;cursor:pointer;">&times;</button>
+    </div>
+    <div class="ds-body">
+      <div class="ds-row">
+        <div><div class="label">任务栏位置</div><div class="desc">上 / 下</div></div>
+        <div class="theme-btns">
+          <span class="theme-btn" data-taskbar="bottom">下</span>
+          <span class="theme-btn" data-taskbar="top">上</span>
+        </div>
+      </div>
+      <div class="ds-row">
+        <div><div class="label">桌面壁纸</div><div class="desc">默认 / 图片 / 视频</div></div>
+        <div style="display:flex;gap:6px">
+          <label class="file-label" style="font-size:11px">
+            选择<input type="file" id="desktopWallpaperUpload" accept="image/*,video/mp4" style="display:none">
+          </label>
+          <button class="btn secondary" id="desktopWallpaperReset" style="font-size:11px">重置</button>
+        </div>
+      </div>
+      <div class="ds-row">
+        <div><div class="label">导入文件到桌面</div><div class="desc">图片 / 视频 / 文本等</div></div>
+        <label class="file-label" style="font-size:11px">
+          导入<input type="file" id="desktopFileImport" multiple style="display:none">
+        </label>
+      </div>
+      <div class="ds-row">
+        <div><div class="label">主界面设置</div><div class="desc">打开主界面设置面板</div></div>
+        <button class="btn" id="openMainSettingsBtn" style="font-size:11px">打开</button>
+      </div>
+      <div class="ds-row">
+        <div><div class="label">清除桌面</div><div class="desc">删除所有桌面图标（不含已打开窗口）</div></div>
+        <button class="btn danger" id="clearDesktopBtn" style="font-size:11px">清除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右键菜单 -->
+  <div class="context-menu" id="contextMenu"></div>
+
+  <!-- 多任务视图 -->
+  <div class="multitask-overlay" id="multitaskOverlay">
+    <div class="mt-title">多任务视图</div>
+    <div class="mt-grid" id="mtGrid"></div>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     [JS-MAIN] 模块化实现
+     ============================================================ -->
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+ * [Util] 通用工具
+ * ============================================================ */
+function escapeHtml(str){
+  return String(str == null ? '' : str).replace(/[&<>"']/g, function(m){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+  });
+}
+function showToast(msg){
+  try{
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);' +
+      'background:var(--accent);color:#fff;padding:10px 18px;border-radius:24px;' +
+      'z-index:99999;font-size:14px;box-shadow:0 8px 22px rgba(0,0,0,.25);' +
+      'font-family:inherit;max-width:80vw;text-align:center;';
+    document.body.appendChild(t);
+    setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transition = 'opacity .3s';
+      setTimeout(function(){ t.remove(); }, 320);
+    }, 1700);
+  }catch(e){}
+}
+
+/* ============================================================
+ * [Storage] localStorage 封装
+ * ============================================================ */
+var Storage = (function(){
+  return {
+    get: function(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+    set: function(k, v){ try{ localStorage.setItem(k, v); return true; }catch(e){ return false; } },
+    remove: function(k){ try{ localStorage.removeItem(k); }catch(e){} },
+    getJSON: function(k, def){
+      try{
+        var raw = localStorage.getItem(k);
+        return raw ? JSON.parse(raw) : def;
+      }catch(e){ return def; }
+    },
+    setJSON: function(k, v){
+      try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; }
+    }
+  };
+})();
+
+/* ============================================================
+ * [DB] IndexedDB 封装
+ * ============================================================ */
+var DB = (function(){
+  var cache = {};
+  function open(dbName, storeName){
+    var key = dbName + '/' + storeName;
+    if(cache[key]) return Promise.resolve(cache[key]);
+    return new Promise(function(res, rej){
+      var req = indexedDB.open(dbName, 1);
+      req.onupgradeneeded = function(e){
+        var db = e.target.result;
+        if(!db.objectStoreNames.contains(storeName)){
+          db.createObjectStore(storeName, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = function(e){ cache[key] = e.target.result; res(e.target.result); };
+      req.onerror = function(){ rej(req.error); };
+    });
+  }
+  async function put(dbName, storeName, record){
+    var db = await open(dbName, storeName);
+    return new Promise(function(res, rej){
+      var tx = db.transaction(storeName, 'readwrite');
+      tx.objectStore(storeName).put(record);
+      tx.oncomplete = function(){ res(); };
+      tx.onerror = function(){ rej(tx.error); };
+    });
+  }
+  async function get(dbName, storeName, id){
+    try{
+      var db = await open(dbName, storeName);
+      return new Promise(function(res){
+        var tx = db.transaction(storeName, 'readonly');
+        var req = tx.objectStore(storeName).get(id);
+        req.onsuccess = function(){ res(req.result || null); };
+        req.onerror = function(){ res(null); };
+      });
+    }catch(e){ return null; }
+  }
+  async function del(dbName, storeName, id){
+    try{
+      var db = await open(dbName, storeName);
+      return new Promise(function(res){
+        var tx = db.transaction(storeName, 'readwrite');
+        tx.objectStore(storeName).delete(id);
+        tx.oncomplete = function(){ res(); };
+        tx.onerror = function(){ res(); };
+      });
+    }catch(e){}
+  }
+  return { put: put, get: get, del: del };
+})();
+
+/* ============================================================
+ * [Bridge] 父子页面通信（严格遵守契约）
+ * ============================================================ */
+var Bridge = (function(){
+  var handlers = {};
+  function on(type, fn){
+    if(!handlers[type]) handlers[type] = [];
+    handlers[type].push(fn);
+  }
+  function emit(type, msg){
+    var list = handlers[type] || [];
+    list.forEach(function(fn){
+      try{ fn(msg); }catch(err){ console.warn('Bridge handler error:', type, err); }
+    });
+  }
+  function send(msg){
+    try{
+      if(window.parent && window.parent !== window){
+        window.parent.postMessage(msg, location.origin);
+      }
+    }catch(e){ console.warn('postMessage failed:', e); }
+  }
+  window.addEventListener('message', function(e){
+    if(e.origin !== location.origin) return;
+    var msg = e.data;
+    if(!msg || !msg.type) return;
+    emit(msg.type, msg);
+  });
+  return {
+    on: on, send: send,
+    ready:          function(){ send({ type: 'ready' }); },
+    exit:           function(){ send({ type: 'exit' }); },
+    openPanel:      function(panel){ send({ type: 'openPanel', panel: panel }); },
+    closeAllPanels: function(){ send({ type: 'closeAllPanels' }); },
+    playFeedback:   function(){ send({ type: 'playFeedback' }); },
+    playDoubleBeep: function(){ send({ type: 'playDoubleBeep' }); },
+    playAlarm:      function(){ send({ type: 'playAlarm' }); },
+    playPowerWarn:  function(){ send({ type: 'playPowerWarn' }); },
+    stopAlarm:      function(){ send({ type: 'stopAlarm' }); },
+    setVolume:      function(v){ send({ type: 'setVolume', volume: v }); },
+    setPrefs:       function(p){ send({ type: 'setPrefs', prefs: p }); },
+    keydown:        function(key, code, mods){
+      var m = { type: 'keydown', key: key, code: code };
+      if(mods) for(var k in mods) m[k] = mods[k];
+      send(m);
+    },
+    restart:        function(){ send({ type: 'restart' }); },
+    fullscreen:     function(){ send({ type: 'fullscreen' }); },
+    toast:          function(text){ send({ type: 'toast', text: text }); },
+    requestBattery: function(){ send({ type: 'requestBattery' }); },
+    timeout60s:     function(){ send({ type: 'desktop60sTimeout' }); }
+  };
+})();
+
+/* ============================================================
+ * [State] 状态管理
+ * ============================================================ */
+var State = (function(){
+  var DEFAULT_DESKTOP_PREFS = {
+    taskbarPosition: 'bottom',
+    wallpaperType: 'default',
+    wallpaperData: null,
+    lastActive: []
+  };
+  var prefs = {
+    userName: 'CUI4 USER',
+    themeMode: 'dark',
+    volume: 33,
+    brightness: 100
+  };
+  var desktopPrefs = Object.assign({}, DEFAULT_DESKTOP_PREFS);
+  var isMobileDevice = false;
+  var batteryLevel = null;
+  var charging = false;
+
+  function loadDesktopPrefs(){
+    var saved = Storage.getJSON('cui4_desktop_prefs', null);
+    if(saved && typeof saved === 'object') Object.assign(desktopPrefs, saved);
+    if(!Array.isArray(desktopPrefs.lastActive)) desktopPrefs.lastActive = [];
+  }
+  function saveDesktopPrefs(){
+    Storage.setJSON('cui4_desktop_prefs', desktopPrefs);
+  }
+  function applyPrefs(newPrefs){
+    if(newPrefs && typeof newPrefs === 'object') Object.assign(prefs, newPrefs);
+  }
+
+  return {
+    prefs: prefs,
+    desktopPrefs: desktopPrefs,
+    get isMobileDevice(){ return isMobileDevice; },
+    set isMobileDevice(v){ isMobileDevice = !!v; },
+    get batteryLevel(){ return batteryLevel; },
+    set batteryLevel(v){ batteryLevel = v; },
+    get charging(){ return charging; },
+    set charging(v){ charging = !!v; },
+    loadDesktopPrefs: loadDesktopPrefs,
+    saveDesktopPrefs: saveDesktopPrefs,
+    applyPrefs: applyPrefs
+  };
+})();
+
+/* ============================================================
+ * [Theme] 主题切换
+ * ============================================================ */
+var Theme = (function(){
+  function apply(mode){
+    document.body.classList.toggle('dark', mode === 'dark');
+  }
+  return { apply: apply };
+})();
+
+/* ============================================================
+ * [Idle] 60 秒无操作计时
+ * ============================================================ */
+var Idle = (function(){
+  var timer = null;
+  var TIMEOUT = 60000;
+  var active = false;
+
+  function reset(){
+    if(!active) return;
+    if(timer) clearTimeout(timer);
+    timer = setTimeout(function(){
+      timer = null;
+      if(active) Bridge.timeout60s();
+    }, TIMEOUT);
+  }
+  function pause(){
+    if(timer){ clearTimeout(timer); timer = null; }
+  }
+  function activate(){
+    active = true;
+    reset();
+  }
+  function deactivate(){
+    active = false;
+    pause();
+  }
+  return { reset: reset, pause: pause, activate: activate, deactivate: deactivate };
+})();
+
+/* ============================================================
+ * [Apps] 应用注册表
+ * ============================================================ */
+var Apps = (function(){
+  var registry = new Map();
+
+  function register(id, def){
+    registry.set(id, Object.assign({ id: id }, def));
+  }
+  function get(id){
+    return registry.get(id) || null;
+  }
+  function list(){
+    return Array.from(registry.values());
+  }
+  function launch(id){
+    var app = get(id);
+    if(app && typeof app.launch === 'function'){
+      try{ app.launch(); }catch(e){ console.warn('启动应用失败', id, e); }
+    }else{
+      showToast('应用不可用: ' + id);
+    }
+  }
+  return { register: register, get: get, list: list, launch: launch };
+})();
+
+/* ============================================================
+ * [Icons] 桌面图标管理
+ * ============================================================ */
+var Icons = (function(){
+  var container = document.getElementById('desktopIcons');
+  var items = [];
+  var selectedId = null;
+
+  function load(){
+    var saved = Storage.getJSON('cui4_desktop_items', []);
+    items = Array.isArray(saved) ? saved : [];
+  }
+  function save(){
+    Storage.setJSON('cui4_desktop_items', items);
+  }
+  function getIconClass(item){
+    var name = (item.name || '').toLowerCase();
+    var type = item.type || '';
+    if(type.indexOf('image/') === 0) return 'fa-image';
+    if(type.indexOf('video/') === 0) return 'fa-video';
+    if(type.indexOf('audio/') === 0) return 'fa-music';
+    if(name.endsWith('.txt') || name.endsWith('.md') || type.indexOf('text/') === 0) return 'fa-file-alt';
+    if(name.endsWith('.exe')) return 'fa-window-maximize';
+    return 'fa-file';
+  }
+  async function getBlob(item){
+    try{
+      if(item.kind === 'file' && item.blobId){
+        var rec = await DB.get('CUI4_DeskFiles', 'files', item.blobId);
+        return rec ? rec.blob : null;
+      }
+      if(item.kind === 'text'){
+        return new Blob([item.content || ''], { type: 'text/plain' });
+      }
+    }catch(e){}
+    return null;
+  }
+  async function render(){
+    if(!container) return;
+    // 撤销旧的 blob URL
+    container.querySelectorAll('img').forEach(function(img){
+      if(img.src && img.src.indexOf('blob:') === 0){
+        try{ URL.revokeObjectURL(img.src); }catch(e){}
+      }
+    });
+    container.querySelectorAll('video').forEach(function(v){
+      if(v.src && v.src.indexOf('blob:') === 0){
+        try{ URL.revokeObjectURL(v.src); }catch(e){}
+      }
+    });
+    container.innerHTML = '';
+
+    if(!items.length){
+      var hint = document.createElement('div');
+      hint.style.cssText = 'grid-column:1/-1;text-align:center;color:#9aaec9;font-size:13px;padding:60px 20px;opacity:.55;line-height:1.8;';
+      hint.innerHTML = '桌面为空<br><span style="font-size:11px">右键可新建文件或导入文件</span>';
+      container.appendChild(hint);
+      return;
+    }
+
+    for(var i = 0; i < items.length; i++){
+      var item = items[i];
+      var el = document.createElement('div');
+      el.className = 'desktop-icon' + (String(selectedId) === String(item.id) ? ' selected' : '');
+      el.dataset.itemId = item.id;
+      el.title = item.name || '';
+
+      var thumb = document.createElement('div');
+      thumb.className = 'di-thumb';
+
+      var icon = document.createElement('i');
+      icon.className = 'fas ' + getIconClass(item);
+      thumb.appendChild(icon);
+
+      try{
+        var blob = await getBlob(item);
+        if(blob){
+          if((item.type || '').indexOf('image/') === 0){
+            var url = URL.createObjectURL(blob);
+            var img = document.createElement('img');
+            img.src = url;
+            img.alt = '';
+            thumb.innerHTML = '';
+            thumb.appendChild(img);
+          }else if((item.type || '').indexOf('video/') === 0){
+            var vurl = URL.createObjectURL(blob);
+            var v = document.createElement('video');
+            v.src = vurl;
+            v.muted = true;
+            v.preload = 'metadata';
+            v.playsInline = true;
+            thumb.innerHTML = '';
+            thumb.appendChild(v);
+          }
+        }
+      }catch(e){}
+
+      var nameEl = document.createElement('div');
+      nameEl.className = 'di-name';
+      nameEl.textContent = item.name || '未命名';
+
+      el.appendChild(thumb);
+      el.appendChild(nameEl);
+
+      el.addEventListener('click', function(e){
+        e.stopPropagation();
+        selectItem(this.dataset.itemId);
+        Idle.reset();
+      });
+      el.addEventListener('dblclick', function(e){
+        e.stopPropagation();
+        var it = getById(this.dataset.itemId);
+        if(it) Windows.openItem(it);
+      });
+      el.addEventListener('contextmenu', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        selectItem(this.dataset.itemId);
+        var it = getById(this.dataset.itemId);
+        if(it) ContextMenu.showIcon(e.clientX, e.clientY, it);
+      });
+
+      container.appendChild(el);
+    }
+  }
+  function selectItem(id){
+    selectedId = id;
+    container.querySelectorAll('.desktop-icon').forEach(function(d){
+      d.classList.toggle('selected', String(d.dataset.itemId) === String(id));
+    });
+  }
+  function clearSelection(){
+    selectedId = null;
+    container.querySelectorAll('.desktop-icon').forEach(function(d){ d.classList.remove('selected'); });
+  }
+  async function addFile(file){
+    try{
+      var blobId = 'b' + Date.now() + Math.random().toString(36).slice(2, 8);
+      var blob = file.slice(0, file.size, file.type || 'application/octet-stream');
+      await DB.put('CUI4_DeskFiles', 'files', { id: blobId, blob: blob });
+      items.push({
+        id: 'd' + Date.now() + Math.random().toString(36).slice(2, 8),
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        kind: 'file',
+        blobId: blobId
+      });
+      save();
+      await render();
+      return true;
+    }catch(e){
+      console.warn('添加文件失败', e);
+      return false;
+    }
+  }
+  function addText(name, content){
+    items.push({
+      id: 'd' + Date.now() + Math.random().toString(36).slice(2, 8),
+      name: name,
+      type: 'text/plain',
+      kind: 'text',
+      content: content || ''
+    });
+    save();
+    render();
+  }
+  async function remove(item){
+    try{
+      if(item.kind === 'file' && item.blobId){
+        await DB.del('CUI4_DeskFiles', 'files', item.blobId);
+      }
+    }catch(e){}
+    items = items.filter(function(x){ return String(x.id) !== String(item.id); });
+    save();
+    await render();
+    Taskbar.refresh();
+  }
+  async function clearAll(){
+    for(var i = 0; i < items.length; i++){
+      var item = items[i];
+      try{
+        if(item.kind === 'file' && item.blobId){
+          await DB.del('CUI4_DeskFiles', 'files', item.blobId);
+        }
+      }catch(e){}
+    }
+    items = [];
+    save();
+    await render();
+    Taskbar.refresh();
+  }
+  function getById(id){
+    return items.find(function(x){ return String(x.id) === String(id); }) || null;
+  }
+  function list(){
+    return items.slice();
+  }
+  return {
+    load: load, render: render, addFile: addFile, addText: addText,
+    remove: remove, clearAll: clearAll, getById: getById, list: list,
+    clearSelection: clearSelection, getIconClass: getIconClass, getBlob: getBlob
+  };
+})();
+
+/* ============================================================
+ * [Wallpaper] 桌面壁纸（独立存储，与主界面分离）
+ * ============================================================ */
+var Wallpaper = (function(){
+  var elDefault = document.getElementById('wpDefault');
+  var elImage = document.getElementById('wpImage');
+  var elVideo = document.getElementById('wpVideo');
+  var currentVideoUrl = null;
+
+  function stopVideo(){
+    try{ elVideo.pause(); }catch(e){}
+    if(currentVideoUrl){
+      try{ URL.revokeObjectURL(currentVideoUrl); }catch(e){}
+      currentVideoUrl = null;
+    }
+    elVideo.removeAttribute('src');
+    elVideo.load();
+    elVideo.style.display = 'none';
+  }
+  function showDefault(){
+    stopVideo();
+    elImage.style.display = 'none';
+    elImage.style.backgroundImage = '';
+    elDefault.style.display = 'block';
+  }
+  function showImage(dataUrl){
+    stopVideo();
+    elDefault.style.display = 'none';
+    elImage.style.display = 'block';
+    elImage.style.backgroundImage = 'url(' + dataUrl + ')';
+  }
+  function showVideo(blob){
+    stopVideo();
+    currentVideoUrl = URL.createObjectURL(blob);
+    elVideo.src = currentVideoUrl;
+    elVideo.muted = true;
+    elVideo.style.display = 'block';
+    elDefault.style.display = 'none';
+    elImage.style.display = 'none';
+    elVideo.play().catch(function(){});
+  }
+  async function apply(){
+    try{
+      var dp = State.desktopPrefs;
+      if(dp.wallpaperType === 'image' && dp.wallpaperData){
+        showImage(dp.wallpaperData);
+      }else if(dp.wallpaperType === 'video'){
+        var rec = await DB.get('CUI4_DeskWallpaper', 'wallpaper', 'desktop_video');
+        if(rec && rec.blob) showVideo(rec.blob);
+        else{
+          dp.wallpaperType = 'default';
+          dp.wallpaperData = null;
+          State.saveDesktopPrefs();
+          showDefault();
+        }
+      }else{
+        showDefault();
+      }
+    }catch(e){ console.warn('壁纸应用失败', e); showDefault(); }
+  }
+  async function setImage(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(){
+        State.desktopPrefs.wallpaperType = 'image';
+        State.desktopPrefs.wallpaperData = reader.result;
+        State.saveDesktopPrefs();
+        showImage(reader.result);
+        resolve();
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  async function setVideo(file){
+    var blob = file.slice(0, file.size, file.type);
+    await DB.put('CUI4_DeskWallpaper', 'wallpaper', { id: 'desktop_video', blob: blob });
+    State.desktopPrefs.wallpaperType = 'video';
+    State.desktopPrefs.wallpaperData = null;
+    State.saveDesktopPrefs();
+    showVideo(blob);
+  }
+  async function reset(){
+    await DB.del('CUI4_DeskWallpaper', 'wallpaper', 'desktop_video');
+    State.desktopPrefs.wallpaperType = 'default';
+    State.desktopPrefs.wallpaperData = null;
+    State.saveDesktopPrefs();
+    showDefault();
+  }
+  return { apply: apply, setImage: setImage, setVideo: setVideo, reset: reset };
+})();
+
+/* ============================================================
+ * [Taskbar] 任务栏
+ * ============================================================ */
+var Taskbar = (function(){
+  var appsEl = document.getElementById('tbApps');
+  var batteryEl = document.getElementById('trayBattery');
+  var batteryTextEl = document.getElementById('trayBatteryText');
+  var volumeIconEl = document.getElementById('trayVolumeIcon');
+  var timeTextEl = document.getElementById('trayTimeText');
+  var dateTextEl = document.getElementById('trayDateText');
+  var taskbarEl = document.getElementById('taskbar');
+  var pins = [];
+
+  function loadPins(){
+    var saved = Storage.getJSON('cui4_desktop_pins', []);
+    pins = Array.isArray(saved) ? saved : [];
+  }
+  function savePins(){
+    Storage.setJSON('cui4_desktop_pins', pins);
+  }
+  function refresh(){
+    if(!appsEl) return;
+    appsEl.innerHTML = '';
+    var list = [];
+    var seen = new Set();
+
+    pins.forEach(function(p){
+      if(!seen.has(p.id)){ seen.add(p.id); list.push(Object.assign({}, p, { pinned: true })); }
+    });
+
+    Windows.listAll().forEach(function(w){
+      if(!seen.has(w.appId)){
+        seen.add(w.appId);
+        list.push({ id: w.appId, name: w.title, icon: w.icon, pinned: false, running: true });
+      }else{
+        var found = list.find(function(x){ return x.id === w.appId; });
+        if(found) found.running = true;
+      }
+    });
+
+    list.forEach(function(app){
+      var el = document.createElement('div');
+      el.className = 'tb-app' + (app.running ? ' active' : '');
+      el.dataset.appId = app.id;
+      el.title = app.name || app.id;
+
+      var iconClass = (app.icon && app.icon.indexOf('fa-') === 0) ? app.icon : 'fa-window-maximize';
+      var i = document.createElement('i');
+      i.className = 'fas ' + iconClass;
+      el.appendChild(i);
+
+      el.addEventListener('click', function(){
+        var running = Windows.byAppId(app.id);
+        if(running.length){
+          var sorted = running.slice().sort(function(a, b){
+            return parseInt(b.el.style.zIndex) - parseInt(a.el.style.zIndex);
+          });
+          var top = sorted[0];
+          if(top.minimized || top.el.style.display === 'none'){
+            Windows.restore(top);
+          }else{
+            Windows.minimize(top);
+          }
+        }else{
+          Apps.launch(app.id);
+        }
+        Idle.reset();
+      });
+      el.addEventListener('contextmenu', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        ContextMenu.showApp(e.clientX, e.clientY, app);
+      });
+
+      appsEl.appendChild(el);
+    });
+  }
+  function pin(app){
+    if(!app) return;
+    if(pins.some(function(p){ return p.id === app.id; })){
+      showToast('已在任务栏中');
+      return;
+    }
+    pins.push({
+      id: app.id, name: app.name,
+      icon: app.icon, type: app.type || 'app'
+    });
+    savePins();
+    refresh();
+    showToast('已固定至任务栏');
+  }
+  function unpin(appId){
+    var idx = pins.findIndex(function(p){ return p.id === appId; });
+    if(idx >= 0){
+      pins.splice(idx, 1);
+      savePins();
+      refresh();
+      showToast('已取消固定');
+    }
+  }
+  function pinItem(item){
+    if(!item) return;
+    pin({
+      id: 'file:' + item.id,
+      name: item.name,
+      icon: Icons.getIconClass(item),
+      type: 'file'
+    });
+  }
+  function isPinned(appId){
+    return pins.some(function(p){ return p.id === appId; });
+  }
+  function updateTime(){
+    var now = new Date();
+    if(timeTextEl){
+      timeTextEl.textContent = String(now.getHours()).padStart(2, '0') + ':' +
+        String(now.getMinutes()).padStart(2, '0') + ':' +
+        String(now.getSeconds()).padStart(2, '0');
+    }
+    if(dateTextEl){
+      dateTextEl.textContent = now.getFullYear() + '.' +
+        String(now.getMonth() + 1).padStart(2, '0') + '.' +
+        String(now.getDate()).padStart(2, '0');
+    }
+  }
+  function updateBattery(){
+    if(!batteryEl) return;
+    if(State.isMobileDevice && State.batteryLevel !== null){
+      batteryEl.style.display = 'flex';
+      if(batteryTextEl) batteryTextEl.textContent = State.batteryLevel + '%' + (State.charging ? ' ⚡' : '');
+      var icon = batteryEl.querySelector('i');
+      if(icon){
+        var cls = 'fa-battery-half';
+        if(State.charging) cls = 'fa-battery-full';
+        else if(State.batteryLevel <= 20) cls = 'fa-battery-quarter';
+        else if(State.batteryLevel <= 50) cls = 'fa-battery-half';
+        else cls = 'fa-battery-full';
+        icon.className = 'fas ' + cls;
+      }
+    }else{
+      batteryEl.style.display = 'none';
+    }
+  }
+  function updateVolume(vol){
+    if(!volumeIconEl) return;
+    vol = Math.max(0, Math.min(100, vol || 0));
+    var cls = 'fa-volume-up';
+    if(vol === 0) cls = 'fa-volume-mute';
+    else if(vol < 50) cls = 'fa-volume-down';
+    volumeIconEl.className = 'fas ' + cls;
+  }
+  function applyPosition(){
+    var isTop = State.desktopPrefs.taskbarPosition === 'top';
+    document.body.classList.toggle('taskbar-top', isTop);
+  }
+  return {
+    loadPins: loadPins, refresh: refresh, pin: pin, unpin: unpin,
+    pinItem: pinItem, isPinned: isPinned,
+    updateTime: updateTime, updateBattery: updateBattery,
+    updateVolume: updateVolume, applyPosition: applyPosition
+  };
+})();
+
+/* ============================================================
+ * [Windows] 窗口管理器
+ * ============================================================ */
+var Windows = (function(){
+  var records = new Map();
+  var zCounter = 100;
+  var idCounter = 0;
+
+  function getDesktopTop(){
+    return State.desktopPrefs.taskbarPosition === 'top' ? 52 : 0;
+  }
+  function getAvailableHeight(){
+    return window.innerHeight - 52;
+  }
+  function create(opts){
+    opts = opts || {};
+    var id = 'w' + (++idCounter);
+    var el = document.createElement('div');
+    el.className = 'window active';
+    el.dataset.winId = id;
+    el.style.zIndex = ++zCounter;
+
+    var vw = window.innerWidth;
+    var vh = getAvailableHeight();
+    var w = Math.min(opts.width || 480, vw - 40);
+    var h = Math.min(opts.height || 520, vh - 40);
+    var x = Math.max(10, Math.round((vw - w) / 2 + (Math.random() * 60 - 30)));
+    var y = Math.max(10, Math.round(getDesktopTop() + (vh - h) / 2 + (Math.random() * 60 - 30)));
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+
+    var iconClass = (opts.icon && opts.icon.indexOf('fa-') === 0) ? opts.icon : 'fa-window-maximize';
+    el.innerHTML =
+      '<div class="win-header">' +
+        '<i class="fas ' + iconClass + '" style="font-size:11px;opacity:.8"></i>' +
+        '<div class="win-title">' + escapeHtml(opts.title || '窗口') + '</div>' +
+        '<div class="win-ctrls">' +
+          '<div class="win-ctrl win-min" title="最小化"><i class="fas fa-minus"></i></div>' +
+          '<div class="win-ctrl win-max" title="最大化"><i class="fas fa-square"></i></div>' +
+          '<div class="win-ctrl win-close" title="关闭"><i class="fas fa-times"></i></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="win-body"></div>';
+
+    document.getElementById('windowsContainer').appendChild(el);
+
+    var record = {
+      id: id, el: el,
+      body: el.querySelector('.win-body'),
+      header: el.querySelector('.win-header'),
+      appId: opts.appId || ('app:' + id),
+      title: opts.title || '窗口',
+      icon: iconClass,
+      onClose: opts.onClose,
+      maximized: false,
+      minimized: false,
+      restoreRect: null
+    };
+    records.set(id, record);
+
+    el.addEventListener('mousedown', function(){ focus(record); });
+    record.header.querySelector('.win-close').addEventListener('click', function(e){ e.stopPropagation(); close(record); });
+    record.header.querySelector('.win-min').addEventListener('click', function(e){ e.stopPropagation(); minimize(record); });
+    record.header.querySelector('.win-max').addEventListener('click', function(e){ e.stopPropagation(); toggleMax(record); });
+    makeDraggable(record, record.header);
+
+    addRecent(record.appId);
+    Taskbar.refresh();
+    return record;
+  }
+  function focus(record){
+    if(!record) return;
+    record.el.style.zIndex = ++zCounter;
+    records.forEach(function(w){ w.el.classList.remove('active'); });
+    record.el.classList.add('active');
+    Idle.reset();
+  }
+  function minimize(record){
+    if(!record) return;
+    record.el.style.display = 'none';
+    record.minimized = true;
+    Taskbar.refresh();
+  }
+  function restore(record){
+    if(!record) return;
+    record.el.style.display = '';
+    record.minimized = false;
+    focus(record);
+    Taskbar.refresh();
+  }
+  function close(record){
+    if(!record) return;
+    if(record.onClose) try{ record.onClose(); }catch(e){}
+    record.el.remove();
+    records.delete(record.id);
+    Taskbar.refresh();
+  }
+  function closeByAppId(appId){
+    Array.from(records.values())
+      .filter(function(w){ return w.appId === appId; })
+      .forEach(close);
+  }
+  function toggleMax(record){
+    if(!record) return;
+    var el = record.el;
+    if(record.maximized){
+      el.style.left = record.restoreRect.left;
+      el.style.top = record.restoreRect.top;
+      el.style.width = record.restoreRect.width;
+      el.style.height = record.restoreRect.height;
+      record.maximized = false;
+      return;
+    }
+    record.restoreRect = {
+      left: el.style.left, top: el.style.top,
+      width: el.style.width, height: el.style.height
+    };
+    var vw = window.innerWidth;
+    var vh = getAvailableHeight();
+    var curW = parseFloat(el.style.width) || 480;
+    var curH = parseFloat(el.style.height) || 520;
+    var ratio = curW / curH;
+    var maxW = vw - 16;
+    var maxH = vh - 16;
+    var w = maxW, h = maxH;
+    if(w / h > ratio) w = h * ratio;
+    else h = w / ratio;
+    el.style.left = ((vw - w) / 2) + 'px';
+    el.style.top = (getDesktopTop() + (vh - h) / 2) + 'px';
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+    record.maximized = true;
+  }
+  function makeDraggable(record, header){
+    var dragging = false, moved = false;
+    var sx = 0, sy = 0, ox = 0, oy = 0;
+
+    function onDown(e){
+      if(record.maximized) return;
+      if(e.target.closest('.win-ctrl')) return;
+      var pt = e.touches ? e.touches[0] : e;
+      sx = pt.clientX; sy = pt.clientY;
+      ox = parseFloat(record.el.style.left) || 0;
+      oy = parseFloat(record.el.style.top) || 0;
+      dragging = true; moved = false;
+      document.body.classList.add('win-dragging');
+      Idle.pause();
+      if(e.cancelable) e.preventDefault();
+    }
+    function onMove(e){
+      if(!dragging) return;
+      var pt = e.touches ? e.touches[0] : e;
+      var dx = pt.clientX - sx;
+      var dy = pt.clientY - sy;
+      if(Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
+      var maxTop = getDesktopTop();
+      record.el.style.left = (ox + dx) + 'px';
+      record.el.style.top = Math.max(maxTop - 30, oy + dy) + 'px';
+      if(e.cancelable) e.preventDefault();
+    }
+    function onUp(){
+      if(!dragging) return;
+      dragging = false;
+      document.body.classList.remove('win-dragging');
+      Idle.reset();
+    }
+    header.addEventListener('mousedown', onDown);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    header.addEventListener('touchstart', onDown, { passive: false });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+  }
+  function addRecent(appId){
+    if(!appId) return;
+    var list = State.desktopPrefs.lastActive;
+    if(!Array.isArray(list)) { list = []; State.desktopPrefs.lastActive = list; }
+    var idx = list.indexOf(appId);
+    if(idx >= 0) list.splice(idx, 1);
+    list.unshift(appId);
+    while(list.length > 12) list.pop();
+    State.saveDesktopPrefs();
+  }
+  function listAll(){
+    return Array.from(records.values());
+  }
+  function byAppId(appId){
+    return Array.from(records.values()).filter(function(w){ return w.appId === appId; });
+  }
+
+  /* ---- 打开桌面文件项 ---- */
+  async function openItem(item){
+    if(!item) return;
+    var blob = await Icons.getBlob(item);
+    if(!blob){ showToast('无法读取文件内容'); return; }
+    var type = item.type || blob.type || '';
+
+    if(type.indexOf('image/') === 0){
+      var url = URL.createObjectURL(blob);
+      var win = create({
+        title: item.name || '图片',
+        icon: 'fa-image',
+        width: 760, height: 580,
+        appId: 'file:' + item.id,
+        onClose: function(){ try{ URL.revokeObjectURL(url); }catch(e){} }
+      });
+      var img = document.createElement('img');
+      img.src = url;
+      img.style.cssText = 'max-width:100%;max-height:100%;display:block;margin:auto;object-fit:contain;border-radius:6px;';
+      win.body.style.padding = '8px';
+      win.body.style.display = 'flex';
+      win.body.style.justifyContent = 'center';
+      win.body.style.alignItems = 'center';
+      win.body.appendChild(img);
+    }else if(type.indexOf('video/') === 0){
+      var vurl = URL.createObjectURL(blob);
+      var vwin = create({
+        title: item.name || '视频',
+        icon: 'fa-video',
+        width: 820, height: 580,
+        appId: 'file:' + item.id,
+        onClose: function(){ try{ URL.revokeObjectURL(vurl); }catch(e){} }
+      });
+      var video = document.createElement('video');
+      video.src = vurl;
+      video.controls = true;
+      video.style.cssText = 'width:100%;height:100%;display:block;background:#000;border-radius:4px;';
+      vwin.body.style.padding = '4px';
+      vwin.body.appendChild(video);
+    }else if(type.indexOf('audio/') === 0){
+      var aurl = URL.createObjectURL(blob);
+      var awin = create({
+        title: item.name || '音频',
+        icon: 'fa-music',
+        width: 480, height: 220,
+        appId: 'file:' + item.id,
+        onClose: function(){ try{ URL.revokeObjectURL(aurl); }catch(e){} }
+      });
+      var audio = document.createElement('audio');
+      audio.src = aurl;
+      audio.controls = true;
+      audio.style.cssText = 'width:100%;margin-top:20px;';
+      awin.body.appendChild(audio);
+    }else if(type.indexOf('text/') === 0 || /\.(txt|md|html|js|css|json|log|xml|csv)$/i.test(item.name || '')){
+      var text = '';
+      try{ text = await blob.text(); }catch(e){}
+      Notepad.open(item.name || '未命名.txt', text);
+    }else{
+      var durl = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = durl;
+      a.download = item.name || 'file';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function(){ try{ URL.revokeObjectURL(durl); }catch(e){} }, 1200);
+      showToast('已下载：' + (item.name || '文件'));
+    }
+  }
+
+  return {
+    create: create, focus: focus, minimize: minimize, restore: restore,
+    close: close, closeByAppId: closeByAppId, toggleMax: toggleMax,
+    listAll: listAll, byAppId: byAppId, openItem: openItem
+  };
+})();
+
+/* ============================================================
+ * [Notepad] 记事本
+ * ============================================================ */
+var Notepad = (function(){
+  function open(fileName, initialText){
+    fileName = fileName || '新建文本.txt';
+    var win = Windows.create({
+      title: '记事本 - ' + fileName,
+      icon: 'fa-file-alt',
+      width: 780, height: 580,
+      appId: 'cui4.notepad'
+    });
+
+    win.body.style.padding = '0';
+    win.body.style.display = 'flex';
+    win.body.style.flexDirection = 'column';
+
+    var toolbar = document.createElement('div');
+    toolbar.className = 'np-toolbar';
+    toolbar.innerHTML =
+      '<button class="btn" id="npSave"><i class="fas fa-save"></i> 保存</button>' +
+      '<button class="btn secondary" id="npSaveAs"><i class="fas fa-download"></i> 另存为</button>' +
+      '<span style="flex:1;font-size:11px;opacity:.55" id="npStatus">未保存</span>';
+
+    var ta = document.createElement('textarea');
+    ta.className = 'np-textarea';
+    ta.value = initialText || '';
+    ta.spellcheck = false;
+
+    win.body.appendChild(toolbar);
+    win.body.appendChild(ta);
+
+    var currentFileHandle = null;
+
+    async function saveToHandle(handle, content){
+      try{
+        var w = await handle.createWritable();
+        await w.write(content);
+        await w.close();
+        return true;
+      }catch(e){ return false; }
+    }
+    async function doSave(saveAs){
+      var content = ta.value;
+      if(!saveAs && currentFileHandle){
+        var ok = await saveToHandle(currentFileHandle, content);
+        if(ok){
+          document.getElementById('npStatus').textContent = '已保存 ' + new Date().toLocaleTimeString();
+          Bridge.toast('已保存');
+          return;
+        }
+      }
+      if(window.showSaveFilePicker){
+        try{
+          var handle = await window.showSaveFilePicker({
+            suggestedName: fileName,
+            types: [{ description: '文本文件', accept: { 'text/plain': ['.txt', '.md', '.log'] } }]
+          });
+          var ok2 = await saveToHandle(handle, content);
+          if(ok2){
+            currentFileHandle = handle;
+            document.getElementById('npStatus').textContent = '已保存到 ' + handle.name;
+            Bridge.toast('已保存');
+            return;
+          }
+        }catch(e){}
+      }
+      var blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(e){} }, 1000);
+      document.getElementById('npStatus').textContent = '已下载 ' + new Date().toLocaleTimeString();
+      Bridge.toast('已下载：' + fileName);
+    }
+
+    toolbar.querySelector('#npSave').addEventListener('click', function(){ doSave(false); });
+    toolbar.querySelector('#npSaveAs').addEventListener('click', function(){ doSave(true); });
+
+    ta.addEventListener('keydown', function(e){
+      if((e.ctrlKey || e.metaKey) && e.key === 's'){
+        e.preventDefault();
+        doSave(false);
+      }
+      if(e.key === 'Tab'){
+        e.preventDefault();
+        var s = ta.selectionStart;
+        ta.value = ta.value.slice(0, s) + '  ' + ta.value.slice(ta.selectionEnd);
+        ta.selectionStart = ta.selectionEnd = s + 2;
+      }
+    });
+
+    setTimeout(function(){ try{ ta.focus(); }catch(e){} }, 200);
+  }
+  return { open: open };
+})();
+
+/* ============================================================
+ * [StartMenu] 开始菜单
+ * ============================================================ */
+var StartMenu = (function(){
+  var menuEl = document.getElementById('startMenu');
+  var recentEl = document.getElementById('startRecentList');
+  var userEl = document.getElementById('startUserName');
+  var powerBtn = document.getElementById('startPowerBtn');
+  var powerMenu = document.getElementById('startPowerMenu');
+  var searchBtn = document.getElementById('startSearchBtn');
+
+  function open(){
+    if(!menuEl) return;
+    menuEl.classList.add('show');
+    renderRecent();
+    if(userEl) userEl.textContent = (State.prefs.userName || 'CUI4 USER').trim() || 'CUI4 USER';
+    Idle.reset();
+  }
+  function close(){
+    if(menuEl) menuEl.classList.remove('show');
+    if(powerMenu) powerMenu.classList.remove('show');
+  }
+  function isOpen(){
+    return !!(menuEl && menuEl.classList.contains('show'));
+  }
+  function renderRecent(){
+    if(!recentEl) return;
+    recentEl.innerHTML = '';
+    var recent = (State.desktopPrefs.lastActive || []).slice(0, 8);
+    if(!recent.length){
+      recentEl.innerHTML = '<div style="padding:12px 8px;font-size:12px;opacity:.5">暂无最近打开</div>';
+      return;
+    }
+    var title = document.createElement('div');
+    title.className = 'start-recent-title';
+    title.textContent = '最近打开';
+    recentEl.appendChild(title);
+    recent.forEach(function(appId){
+      var app = Apps.get(appId);
+      if(!app) return;
+      var el = document.createElement('div');
+      el.className = 'start-item';
+      var iconClass = (app.icon && app.icon.indexOf('fa-') === 0) ? app.icon : 'fa-window-maximize';
+      el.innerHTML = '<i class="fas ' + iconClass + '"></i><span>' + escapeHtml(app.name || appId) + '</span>';
+      el.addEventListener('click', function(){
+        close();
+        Apps.launch(appId);
+      });
+      recentEl.appendChild(el);
+    });
+  }
+  function bindEvents(){
+    if(powerBtn){
+      powerBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        if(powerMenu) powerMenu.classList.toggle('show');
+      });
+    }
+    if(powerMenu){
+      powerMenu.addEventListener('click', function(e){
+        var item = e.target.closest('.power-item');
+        if(!item) return;
+        var act = item.dataset.act;
+        close();
+        if(act === 'restart') Bridge.restart();
+        else if(act === 'main') Bridge.exit();
+      });
+    }
+    if(searchBtn){
+      searchBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        close();
+        DesktopSearch.open();
+      });
+    }
+  }
+  return { open: open, close: close, isOpen: isOpen, bindEvents: bindEvents };
+})();
+
+/* ============================================================
+ * [Volume] 音量（通过父页面播放音频）
+ * ============================================================ */
+var Volume = (function(){
+  var panelEl = document.getElementById('volumePanel');
+  var sliderEl = document.getElementById('vpSlider');
+  var pctEl = document.getElementById('vpPct');
+  var muteBtn = document.getElementById('vpMuteBtn');
+  var muteIcon = document.getElementById('vpMuteIcon');
+  var currentVol = 33;
+  var prevVol = 33;
+
+  function setFromParent(v){
+    currentVol = Math.max(0, Math.min(100, v || 0));
+    State.prefs.volume = currentVol;
+    updateUI();
+    Taskbar.updateVolume(currentVol);
+  }
+  function setFromUser(v){
+    currentVol = Math.max(0, Math.min(100, v || 0));
+    State.prefs.volume = currentVol;
+    updateUI();
+    Taskbar.updateVolume(currentVol);
+    Bridge.setVolume(currentVol);
+  }
+  function updateUI(){
+    if(sliderEl) sliderEl.value = currentVol;
+    if(pctEl) pctEl.textContent = Math.round(currentVol) + '%';
+    var muted = currentVol <= 0;
+    if(muteIcon){
+      muteIcon.className = 'fas ' + (muted ? 'fa-volume-mute' : (currentVol < 50 ? 'fa-volume-down' : 'fa-volume-up'));
+    }
+    if(muteBtn) muteBtn.classList.toggle('muted', muted);
+  }
+  function toggle(){
+    if(!panelEl) return;
+    var wasOpen = panelEl.classList.contains('show');
+    panelEl.classList.toggle('show');
+    if(!wasOpen){ updateUI(); Idle.reset(); }
+  }
+  function close(){
+    if(panelEl) panelEl.classList.remove('show');
+  }
+  function isOpen(){
+    return !!(panelEl && panelEl.classList.contains('show'));
+  }
+  function bindEvents(){
+    if(sliderEl){
+      sliderEl.addEventListener('input', function(e){
+        setFromUser(parseFloat(e.target.value));
+      });
+    }
+    if(muteBtn){
+      muteBtn.addEventListener('click', function(){
+        if(currentVol > 0){ prevVol = currentVol; setFromUser(0); }
+        else setFromUser(prevVol || 33);
+      });
+    }
+  }
+  return {
+    setFromParent: setFromParent, setFromUser: setFromUser,
+    toggle: toggle, close: close, isOpen: isOpen, bindEvents: bindEvents,
+    get: function(){ return currentVol; }
+  };
+})();
+
+/* ============================================================
+ * [DesktopSearch] 桌面搜索
+ * ============================================================ */
+var DesktopSearch = (function(){
+  var el = document.getElementById('desktopSearch');
+  var inputEl = document.getElementById('dsInput');
+  var resultsEl = document.getElementById('dsResults');
+  var history = [];
+
+  function loadHistory(){
+    var saved = Storage.getJSON('cui4_desktop_search_history', []);
+    history = Array.isArray(saved) ? saved : [];
+  }
+  function saveHistory(){
+    Storage.setJSON('cui4_desktop_search_history', history);
+  }
+  function addHistory(q){
+    q = String(q || '').trim();
+    if(!q) return;
+    var idx = history.indexOf(q);
+    if(idx >= 0) history.splice(idx, 1);
+    history.unshift(q);
+    while(history.length > 10) history.pop();
+    saveHistory();
+  }
+  function open(){
+    if(!el) return;
+    el.classList.add('show');
+    if(inputEl){
+      inputEl.value = '';
+      setTimeout(function(){ try{ inputEl.focus(); }catch(e){} }, 60);
+    }
+    render('');
+    Idle.reset();
+  }
+  function close(){
+    if(el) el.classList.remove('show');
+  }
+  function isOpen(){
+    return !!(el && el.classList.contains('show'));
+  }
+  function render(q){
+    if(!resultsEl) return;
+    resultsEl.innerHTML = '';
+    q = (q || '').trim().toLowerCase();
+
+    function addSection(title){
+      var t = document.createElement('div');
+      t.className = 'start-recent-title';
+      t.textContent = title;
+      resultsEl.appendChild(t);
+    }
+    function addResult(icon, label, action){
+      var item = document.createElement('div');
+      item.className = 'ds-result';
+      item.innerHTML = '<i class="fas ' + icon + '"></i><span>' + escapeHtml(label) + '</span>';
+      item.addEventListener('click', function(){
+        if(inputEl) addHistory(inputEl.value);
+        close();
+        action();
+      });
+      resultsEl.appendChild(item);
+    }
+
+    if(!q){
+      if(history.length){
+        addSection('最近搜索');
+        history.slice(0, 8).forEach(function(h){
+          addResult('fa-history', h, function(){
+            if(inputEl) inputEl.value = h;
+            render(h);
+          });
+        });
+      }else{
+        addSection('常用应用');
+        Apps.list().forEach(function(app){
+          var icon = (app.icon && app.icon.indexOf('fa-') === 0) ? app.icon : 'fa-window-maximize';
+          addResult(icon, app.name, function(){ app.launch(); });
+        });
+      }
+      return;
+    }
+
+    var appMatches = Apps.list().filter(function(a){
+      return (a.name || '').toLowerCase().indexOf(q) >= 0;
+    });
+    if(appMatches.length){
+      addSection('应用与设置');
+      appMatches.forEach(function(a){
+        var icon = (a.icon && a.icon.indexOf('fa-') === 0) ? a.icon : 'fa-window-maximize';
+        addResult(icon, a.name, function(){ a.launch(); });
+      });
+    }
+
+    var itemMatches = Icons.list().filter(function(x){
+      return (x.name || '').toLowerCase().indexOf(q) >= 0;
+    });
+    if(itemMatches.length){
+      addSection('桌面文件');
+      itemMatches.forEach(function(item){
+        addResult(Icons.getIconClass(item), item.name, function(){ Windows.openItem(item); });
+      });
+    }
+
+    if(!resultsEl.children.length){
+      addSection('搜索');
+      addResult('fa-search', '未找到匹配结果', function(){});
+    }
+  }
+  function bindEvents(){
+    if(inputEl){
+      var timer = null;
+      inputEl.addEventListener('input', function(){
+        if(timer) clearTimeout(timer);
+        timer = setTimeout(function(){ render(inputEl.value); }, 100);
+        Idle.reset();
+      });
+      inputEl.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          var first = resultsEl.querySelector('.ds-result');
+          if(first){ addHistory(inputEl.value); first.click(); }
+        }else if(e.key === 'Escape'){
+          close();
+        }
+      });
+    }
+  }
+  return { loadHistory: loadHistory, open: open, close: close, isOpen: isOpen, bindEvents: bindEvents };
+})();
+
+/* ============================================================
+ * [Settings] 桌面设置弹窗
+ * ============================================================ */
+var Settings = (function(){
+  var modalEl = document.getElementById('desktopSettings');
+  var closeBtn = document.getElementById('dsCloseBtn');
+  var wallpaperUpload = document.getElementById('desktopWallpaperUpload');
+  var wallpaperReset = document.getElementById('desktopWallpaperReset');
+  var fileImport = document.getElementById('desktopFileImport');
+  var openMainSettingsBtn = document.getElementById('openMainSettingsBtn');
+  var clearDesktopBtn = document.getElementById('clearDesktopBtn');
+  var taskbarPosBtns = modalEl ? modalEl.querySelectorAll('[data-taskbar]') : [];
+
+  function open(){
+    if(!modalEl) return;
+    modalEl.classList.add('show');
+    taskbarPosBtns.forEach(function(b){
+      b.classList.toggle('active', b.dataset.taskbar === State.desktopPrefs.taskbarPosition);
+    });
+    Idle.reset();
+  }
+  function close(){
+    if(modalEl) modalEl.classList.remove('show');
+  }
+  function isOpen(){
+    return !!(modalEl && modalEl.classList.contains('show'));
+  }
+  function bindEvents(){
+    if(closeBtn) closeBtn.addEventListener('click', close);
+
+    taskbarPosBtns.forEach(function(btn){
+      btn.addEventListener('click', function(){
+        State.desktopPrefs.taskbarPosition = btn.dataset.taskbar === 'top' ? 'top' : 'bottom';
+        State.saveDesktopPrefs();
+        Taskbar.applyPosition();
+        taskbarPosBtns.forEach(function(b){
+          b.classList.toggle('active', b.dataset.taskbar === State.desktopPrefs.taskbarPosition);
+        });
+        showToast('任务栏位置已切换');
+      });
+    });
+
+    if(wallpaperUpload){
+      wallpaperUpload.addEventListener('change', async function(e){
+        var file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if(!file) return;
+        try{
+          if(file.type.indexOf('image/') === 0){
+            await Wallpaper.setImage(file);
+            showToast('桌面壁纸已更换');
+          }else if(file.type === 'video/mp4'){
+            await Wallpaper.setVideo(file);
+            showToast('桌面视频壁纸已设置');
+          }else{
+            showToast('仅支持图片或 mp4');
+          }
+        }catch(err){
+          console.warn(err);
+          showToast('设置壁纸失败');
+        }
+      });
+    }
+
+    if(wallpaperReset){
+      wallpaperReset.addEventListener('click', async function(){
+        await Wallpaper.reset();
+        showToast('桌面壁纸已重置');
+      });
+    }
+
+    if(fileImport){
+      fileImport.addEventListener('change', async function(e){
+        var files = e.target.files ? Array.from(e.target.files) : [];
+        e.target.value = '';
+        if(!files.length) return;
+        var count = 0;
+        for(var i = 0; i < files.length; i++){
+          var ok = await Icons.addFile(files[i]);
+          if(ok) count++;
+        }
+        if(count) showToast('已导入 ' + count + ' 个文件到桌面');
+      });
+    }
+
+    if(openMainSettingsBtn){
+      openMainSettingsBtn.addEventListener('click', function(){
+        close();
+        Bridge.openPanel('settings');
+      });
+    }
+
+    if(clearDesktopBtn){
+      clearDesktopBtn.addEventListener('click', async function(){
+        if(!Icons.list().length){ showToast('桌面已是空的'); return; }
+        if(!confirm('是否清除桌面上的所有项目？')) return;
+        await Icons.clearAll();
+        showToast('已清除桌面');
+      });
+    }
+  }
+  return { open: open, close: close, isOpen: isOpen, bindEvents: bindEvents };
+})();
+
+/* ============================================================
+ * [ContextMenu] 右键菜单
+ * ============================================================ */
+var ContextMenu = (function(){
+  var menuEl = document.getElementById('contextMenu');
+
+  function hide(){
+    if(menuEl) menuEl.classList.remove('show');
+  }
+  function show(x, y, items){
+    if(!menuEl) return;
+    menuEl.innerHTML = '';
+    items.forEach(function(item){
+      var el = document.createElement('div');
+      el.className = 'ctx-item';
+      el.innerHTML = '<i class="fas fa-' + (item.icon || 'circle') + '"></i><span>' + escapeHtml(item.label) + '</span>';
+      el.addEventListener('click', function(e){
+        e.stopPropagation();
+        hide();
+        try{ item.action && item.action(); }catch(err){ console.warn(err); }
+      });
+      menuEl.appendChild(el);
+    });
+    menuEl.style.left = Math.min(x, window.innerWidth - 200) + 'px';
+    menuEl.style.top = Math.min(y, window.innerHeight - 200) + 'px';
+    menuEl.classList.add('show');
+  }
+  function showDesktop(x, y){
+    show(x, y, [
+      { icon: 'sync-alt', label: '刷新', action: function(){ Icons.render(); showToast('已刷新'); } },
+      { icon: 'plus', label: '新建文件', action: createNewFile },
+      { icon: 'file-import', label: '导入文件', action: triggerImport },
+      { icon: 'th-large', label: '多任务视图', action: function(){ Multitask.open(); } },
+      { icon: 'sliders-h', label: '桌面设置', action: function(){ Settings.open(); } },
+      { icon: 'cog', label: '主界面设置', action: function(){ Bridge.openPanel('settings'); } }
+    ]);
+  }
+  function showIcon(x, y, item){
+    show(x, y, [
+      { icon: 'folder-open', label: '打开', action: function(){ Windows.openItem(item); } },
+      { icon: 'thumbtack', label: '固定至任务栏', action: function(){ Taskbar.pinItem(item); } },
+      { icon: 'trash-alt', label: '删除', action: function(){ deleteItem(item); } }
+    ]);
+  }
+  function showTaskbar(x, y){
+    show(x, y, [
+      { icon: 'sliders-h', label: '任务栏设置', action: function(){ Settings.open(); } },
+      { icon: 'th-large', label: '多任务视图', action: function(){ Multitask.open(); } },
+      { icon: 'home', label: '返回主界面', action: function(){ Bridge.exit(); } }
+    ]);
+  }
+  function showApp(x, y, app){
+    var items = [];
+    if(app.pinned){
+      items.push({ icon: 'thumbtack', label: '从任务栏取消固定', action: function(){ Taskbar.unpin(app.id); } });
+    }else{
+      items.push({ icon: 'thumbtack', label: '固定至任务栏', action: function(){ Taskbar.pin(app); } });
+    }
+    var running = Windows.byAppId(app.id);
+    if(running.length){
+      items.push({ icon: 'times', label: '关闭窗口', action: function(){ running.forEach(Windows.close); } });
+    }else{
+      items.push({ icon: 'play', label: '打开', action: function(){ Apps.launch(app.id); } });
+    }
+    items.push({ icon: 'cog', label: '桌面设置', action: function(){ Settings.open(); } });
+    show(x, y, items);
+  }
+  function createNewFile(){
+    var name = prompt('请输入文件名（含后缀，如 新文件.txt）', '新建文本.txt');
+    if(!name) return;
+    Icons.addText(name, '');
+    showToast('已创建：' + name);
+  }
+  function triggerImport(){
+    var input = document.getElementById('desktopFileImport');
+    if(input) input.click();
+  }
+  async function deleteItem(item){
+    if(!item) return;
+    if(!confirm('是否确认删除「' + (item.name || '该文件') + '」？')) return;
+    if(Taskbar.isPinned('file:' + item.id)){
+      Taskbar.unpin('file:' + item.id);
+    }
+    Windows.closeByAppId('file:' + item.id);
+    await Icons.remove(item);
+    showToast('已删除');
+  }
+  function bindEvents(){
+    document.addEventListener('click', function(e){
+      if(menuEl && menuEl.classList.contains('show') && !menuEl.contains(e.target)){
+        hide();
+      }
+    });
+    document.addEventListener('scroll', hide, true);
+  }
+  return {
+    show: show, showDesktop: showDesktop, showIcon: showIcon,
+    showTaskbar: showTaskbar, showApp: showApp,
+    hide: hide, bindEvents: bindEvents, triggerImport: triggerImport
+  };
+})();
+
+/* ============================================================
+ * [Multitask] 多任务视图
+ * ============================================================ */
+var Multitask = (function(){
+  var overlay = document.getElementById('multitaskOverlay');
+  var grid = document.getElementById('mtGrid');
+
+  function open(){
+    if(!overlay) return;
+    overlay.classList.add('show');
+    render();
+    Idle.reset();
+  }
+  function close(){
+    if(overlay) overlay.classList.remove('show');
+  }
+  function isOpen(){
+    return !!(overlay && overlay.classList.contains('show'));
+  }
+  function render(){
+    if(!grid) return;
+    grid.innerHTML = '';
+    var windows = Windows.listAll();
+    if(!windows.length){
+      grid.innerHTML = '<div class="mt-empty">暂无运行中的窗口</div>';
+      return;
+    }
+    windows.forEach(function(w){
+      var card = document.createElement('div');
+      card.className = 'mt-card';
+      var iconClass = (w.icon && w.icon.indexOf('fa-') === 0) ? w.icon : 'fa-window-maximize';
+      card.innerHTML = '<i class="fas ' + iconClass + '"></i><span>' + escapeHtml(w.title || '窗口') + '</span>';
+      card.addEventListener('click', function(){
+        close();
+        if(w.minimized || w.el.style.display === 'none') Windows.restore(w);
+        else Windows.focus(w);
+      });
+      grid.appendChild(card);
+    });
+  }
+  function bindEvents(){
+    if(overlay){
+      overlay.addEventListener('click', function(e){
+        if(e.target === overlay) close();
+      });
+    }
+  }
+  return { open: open, close: close, isOpen: isOpen, bindEvents: bindEvents };
+})();
+
+/* ============================================================
+ * [Keyboard] 键盘处理
+ * ============================================================ */
+var Keyboard = (function(){
+  function isInputFocused(){
+    var a = document.activeElement;
+    if(!a) return false;
+    return a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable;
+  }
+  function handle(e){
+    // 契约：Delete / * 转发给父页面
+    if(e.key === 'Delete'){
+      e.preventDefault();
+      Bridge.keydown(e.key, e.code, {
+        ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey
+      });
+      return;
+    }
+    if(e.key === '*' && e.shiftKey && e.code === 'Digit8'){
+      e.preventDefault();
+      Bridge.keydown(e.key, e.code, {
+        ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey
+      });
+      return;
+    }
+    if(e.code === 'NumpadMultiply'){
+      e.preventDefault();
+      Bridge.keydown(e.key, e.code, {
+        ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey
+      });
+      return;
+    }
+
+    if(isInputFocused()) return;
+
+    // Escape：按栈关闭浮层
+    if(e.key === 'Escape'){
+      if(Volume.isOpen()){ Volume.close(); e.preventDefault(); return; }
+      if(Multitask.isOpen()){ Multitask.close(); e.preventDefault(); return; }
+      if(StartMenu.isOpen()){ StartMenu.close(); e.preventDefault(); return; }
+      if(DesktopSearch.isOpen()){ DesktopSearch.close(); e.preventDefault(); return; }
+      if(Settings.isOpen()){ Settings.close(); e.preventDefault(); return; }
+      var sorted = Windows.listAll().sort(function(a, b){
+        return parseInt(b.el.style.zIndex) - parseInt(a.el.style.zIndex);
+      });
+      if(sorted.length){ Windows.close(sorted[0]); e.preventDefault(); return; }
+      e.preventDefault();
+      Bridge.exit();
+      return;
+    }
+
+    // 桌面本地快捷键
+    switch(e.key){
+      case 'ArrowLeft':
+        e.preventDefault();
+        DesktopSearch.open();
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        Bridge.exit();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        StartMenu.open();
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        Bridge.openPanel('alarm');
+        break;
+    }
+
+    if(e.code === 'CapsLock' || e.key === 'CapsLock'){
+      e.preventDefault();
+      if(Multitask.isOpen()) Multitask.close();
+      else Multitask.open();
+    }
+  }
+  function bind(){
+    window.addEventListener('keydown', handle, true);
+  }
+  return { bind: bind };
+})();
+
+/* ============================================================
+ * [Gestures] 手势 / 空白点击
+ * ============================================================ */
+var Gestures = (function(){
+  function bind(){
+    var root = document.getElementById('desktopRoot');
+    if(root){
+      root.addEventListener('click', function(e){
+        if(e.target.closest('.desktop-icon')) return;
+        if(e.target.closest('.window, .taskbar, .start-menu, .volume-panel, .desktop-search, .desktop-settings, .context-menu, .multitask-overlay')) return;
+        Icons.clearSelection();
+        ContextMenu.hide();
+        if(StartMenu.isOpen() && !e.target.closest('.start-menu')) StartMenu.close();
+        if(DesktopSearch.isOpen() && !e.target.closest('.desktop-search')) DesktopSearch.close();
+        if(Volume.isOpen() && !e.target.closest('.volume-panel')) Volume.close();
+        Idle.reset();
+      });
+      root.addEventListener('contextmenu', function(e){
+        if(e.target.closest('.window, .taskbar, .desktop-icon, .start-menu, .volume-panel, .desktop-search, .desktop-settings, .multitask-overlay, .context-menu')) return;
+        e.preventDefault();
+        ContextMenu.showDesktop(e.clientX, e.clientY);
+      });
+    }
+  }
+  return { bind: bind };
+})();
+
+/* ============================================================
+ * [Init] 初始化入口
+ * ============================================================ */
+function init(){
+  State.loadDesktopPrefs();
+  Icons.load();
+  Taskbar.loadPins();
+  DesktopSearch.loadHistory();
+
+  Taskbar.applyPosition();
+  Taskbar.refresh();
+  Taskbar.updateBattery();
+  Taskbar.updateVolume(State.prefs.volume || 33);
+  Wallpaper.apply();
+  Icons.render();
+
+  // 绑定模块事件
+  StartMenu.bindEvents();
+  Volume.bindEvents();
+  DesktopSearch.bindEvents();
+  Settings.bindEvents();
+  Multitask.bindEvents();
+  ContextMenu.bindEvents();
+  Keyboard.bind();
+  Gestures.bind();
+
+  // 任务栏事件
+  var tbStart = document.getElementById('tbStart');
+  var tbSearch = document.getElementById('tbSearch');
+  var tbMultitask = document.getElementById('tbMultitask');
+  var trayVolume = document.getElementById('trayVolume');
+  var trayExit = document.getElementById('trayExit');
+  var taskbar = document.getElementById('taskbar');
+
+  if(tbStart) tbStart.addEventListener('click', function(e){
+    e.stopPropagation();
+    if(StartMenu.isOpen()) StartMenu.close();
+    else StartMenu.open();
+  });
+  if(tbSearch) tbSearch.addEventListener('click', function(e){
+    e.stopPropagation();
+    if(DesktopSearch.isOpen()) DesktopSearch.close();
+    else DesktopSearch.open();
+  });
+  if(tbMultitask) tbMultitask.addEventListener('click', function(e){
+    e.stopPropagation();
+    if(Multitask.isOpen()) Multitask.close();
+    else Multitask.open();
+  });
+  if(trayVolume) trayVolume.addEventListener('click', function(e){
+    e.stopPropagation();
+    Volume.toggle();
+  });
+  if(trayExit) trayExit.addEventListener('click', function(e){
+    e.stopPropagation();
+    Bridge.exit();
+  });
+  if(taskbar){
+    taskbar.addEventListener('contextmenu', function(e){
+      if(e.target.closest('.tb-app')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      ContextMenu.showTaskbar(e.clientX, e.clientY);
+    });
+  }
+
+  // 时钟
+  Taskbar.updateTime();
+  setInterval(Taskbar.updateTime, 1000);
+
+  // 活动 → 重置空闲
+  ['mousemove', 'mousedown', 'touchstart', 'keydown', 'wheel', 'touchmove'].forEach(function(ev){
+    document.addEventListener(ev, function(){
+      if(!document.body.classList.contains('win-dragging')) Idle.reset();
+    }, { passive: true, capture: true });
+  });
+
+  /* ------- Bridge 消息处理（严格遵守契约） ------- */
+  Bridge.on('sync', function(msg){
+    State.applyPrefs(msg.prefs || {});
+    if(msg.userName) State.prefs.userName = msg.userName;
+    Theme.apply(msg.theme || (State.prefs.themeMode === 'dark' ? 'dark' : 'light'));
+    Volume.setFromParent(msg.volume != null ? msg.volume : (State.prefs.volume || 33));
+    State.isMobileDevice = !!msg.isMobileDevice;
+    State.batteryLevel = msg.batteryLevel;
+    State.charging = !!msg.charging;
+    Taskbar.updateBattery();
+  });
+  Bridge.on('prefsUpdate', function(msg){
+    State.applyPrefs(msg.prefs || {});
+  });
+  Bridge.on('theme', function(msg){
+    Theme.apply(msg.dark ? 'dark' : 'light');
+  });
+  Bridge.on('volume', function(msg){
+    Volume.setFromParent(msg.volume || 0);
+  });
+  Bridge.on('battery', function(msg){
+    State.isMobileDevice = true;
+    State.batteryLevel = msg.level;
+    State.charging = !!msg.charging;
+    Taskbar.updateBattery();
+  });
+  Bridge.on('enter', function(){
+    Idle.activate();
+  });
+  Bridge.on('leave', function(){
+    Idle.deactivate();
+    Volume.close();
+    StartMenu.close();
+    DesktopSearch.close();
+    Settings.close();
+    Multitask.close();
+    ContextMenu.hide();
+  });
+
+  // 通知父页面就绪
+  Bridge.ready();
+
+  // 请求电池初始化
+  Bridge.requestBattery();
+
+  // 窗口尺寸变化时重新适配最大化窗口
+  window.addEventListener('resize', function(){
+    Windows.listAll().forEach(function(w){
+      if(w.maximized){
+        w.maximized = false;
+        Windows.toggleMax(w);
+      }
+    });
+  });
+
+  // 延迟激活空闲（父页面可能立即发 enter，这里做兜底）
+  setTimeout(function(){ Idle.activate(); }, 300);
+
+  console.log('CUI4 Desktop (iframe) initialized | 桌面项: ' + Icons.list().length);
+}
+
+/* ============================================================
+ * 启动
+ * ============================================================ */
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', init);
+}else{
+  init();
+}
+
+})();
+</script>
+
+</body>
+</html>
