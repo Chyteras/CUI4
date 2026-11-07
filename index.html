@@ -795,15 +795,15 @@
         }
 
         /* 主界面退场 */
-        #mainLayer {
-            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-            will-change: transform;
-        }
-        #mainLayer.hidden {
-            transform: translateX(-100%);
-            pointer-events: none;
-        }
-
+#mainContent {
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+                padding 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    will-change: transform;
+}
+#mainContent.hidden {
+    transform: translateX(-100%);
+    pointer-events: none;
+}
         @media (max-width: 640px) {
             .desktop-toggle-btn {
                 top: 12px;
@@ -5134,14 +5134,7 @@
                 document.addEventListener('touchstart', function(e) {
                     if (e.touches.length !== 1) { tracking = false; return; }
                     if (isInputFocused()) { tracking = false; return; }
-                if (e.key === '/' || e.key === '\\') {
-                    e.preventDefault();
-                    if (desktopActive) hideDesktop();
-                                    if (!desktopFrame.src) {
-                    desktopFrame.src = desktopFrame.dataset.src;
-                }else showDesktop();
-                    return;
-                }
+                
                     if (ringingState) { tracking = false; return; }
                     if (inScrollable(e.target)) { tracking = false; return; }
                     tracking = true;
@@ -7172,7 +7165,13 @@
                     return;
                 }
 
-                switch (e.key) {
+                                switch (e.key) {
+                    case '/':
+                    case '\\':
+                        e.preventDefault();
+                        if (desktopActive) hideDesktop();
+                        else showDesktop();
+                        break;
                     case 'ArrowLeft':
                         e.preventDefault();
                         openSettingsWithAnimation();
@@ -7241,9 +7240,14 @@
                 if (initialConfirmPanel.classList.contains('show')) hideInitialConfirmPanel();
                 try { searchInput.blur(); } catch (e) {}
 
-                desktopActive = true;
-                desktopContainer.classList.add('active');
-                mainLayer.classList.add('hidden');
+                // 首次进入时才加载桌面 iframe
+if (!desktopFrame.getAttribute('src')) {
+    desktopFrame.src = desktopFrame.dataset.src || './deskindex.html';
+}
+
+desktopActive = true;
+desktopContainer.classList.add('active');
+mainContent.classList.add('hidden');
 
                 setTimeout(() => {
                     if (desktopReady) postToDesktop({ type: 'enter' });
@@ -7254,7 +7258,7 @@
                 if (!desktopActive) return;
                 postToDesktop({ type: 'leave' });
                 desktopContainer.classList.remove('active');
-                mainLayer.classList.remove('hidden');
+mainContent.classList.remove('hidden');
                 setTimeout(() => { desktopActive = false; }, 650);
             }
 
@@ -7605,8 +7609,8 @@ if ('serviceWorker' in navigator) {
     });
 }
 </script>
-    <!-- 桌面模式 iframe 容器（拆分方案核心） -->
-    <    <div id="desktopContainer">
+        <!-- 桌面模式 iframe 容器（拆分方案核心） -->
+    <div id="desktopContainer">
         <iframe id="desktopFrame" data-src="./deskindex.html"
                 allow="autoplay; fullscreen; clipboard-read; clipboard-write"
                 referrerpolicy="same-origin"></iframe>
